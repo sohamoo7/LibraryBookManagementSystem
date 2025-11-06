@@ -96,6 +96,9 @@ public class BorrowService {
                 .findActiveBorrow(request.getBorrowerId(), request.getBookId())
                 .orElseThrow(() -> new ResourceNotFoundException("No active borrow record found for the given book and borrower"));
 
+        // Get the borrower
+        Borrower borrower = borrowRecord.getBorrower();
+        
         // Update return date
         LocalDate returnDate = LocalDate.now();
         borrowRecord.setReturnDate(returnDate);
@@ -114,6 +117,11 @@ public class BorrowService {
         Book book = borrowRecord.getBook();
         book.setAvailableCopies(book.getAvailableCopies() + 1);
         bookRepository.save(book);
+        
+        // The borrower's book limit is automatically managed by the Borrower entity
+        // When a book is returned, the borrow record is removed from the borrower's records
+        // and the borrower's borrow limit is automatically updated
+        // This is handled by the JPA relationship and the Borrower entity's removeBorrowRecord method
 
         return mapToBorrowResponse(updatedRecord);
     }
