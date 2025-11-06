@@ -48,29 +48,61 @@ public class BookService {
         return modelMapper.map(savedBook, BookResponse.class);
     }
 
-    public Page<BookResponse> getAllBooks(int page, int size, String sortBy) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
+    public Page<BookResponse> getAllBooks(Pageable pageable) {
         return bookRepository.findByDeletedFalse(pageable)
                 .map(book -> modelMapper.map(book, BookResponse.class));
     }
-
-    public List<BookResponse> getBooksByCategory(String category) {
-        return bookRepository.findByCategoryAndDeletedFalse(category).stream()
-                .map(book -> modelMapper.map(book, BookResponse.class))
-                .collect(Collectors.toList());
+    
+    public Page<BookResponse> getBooksByCategoryAndAvailable(String category, Pageable pageable) {
+        return bookRepository.findByCategoryAndAvailableCopiesGreaterThan(category, 0, pageable)
+                .map(book -> modelMapper.map(book, BookResponse.class));
     }
 
-    public List<BookResponse> getAvailableBooks() {
-        return bookRepository.findByIsAvailableTrueAndDeletedFalse().stream()
-                .map(book -> modelMapper.map(book, BookResponse.class))
-                .collect(Collectors.toList());
+    public Page<BookResponse> getBooksByCategory(String category, Pageable pageable) {
+        return bookRepository.findByCategoryAndDeletedFalse(category, pageable)
+                .map(book -> modelMapper.map(book, BookResponse.class));
+    }
+
+    public Page<BookResponse> getAvailableBooks(Pageable pageable) {
+        return bookRepository.findByIsAvailableTrueAndDeletedFalse(pageable)
+                .map(book -> modelMapper.map(book, BookResponse.class));
     }
 
     @Transactional
-    public void deleteBook(UUID id) {
-        Book book = bookRepository.findById(id)
+    public BookResponse updateBook(UUID id, BookRequest bookRequest) {
+        Book existingBook = bookRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Book not found with id: " + id));
 
+        // Calculate the difference in total copies to adjust available copies
+        int copiesDifference = bookRequest.getTotalCopies() - existingBook.getTotalCopies();
+        
+        // Update book properties
+        existingBook.setTitle(bookRequest.getTitle());
+        existingBook.setAuthor(bookRequest.getAuthor());
+        existingBook.setCategory(bookRequest.getCategory());
+        existingBook.setTotalCopies(bookRequest.getTotalCopies());
+        existingBook.setAvailableCopies(existingBook.getAvailableCopies() + copiesDifference);
+        
+        // Ensure available copies don't go negative
+        if (existingBook.getAvailableCopies() < 0) {
+            existingBook.setAvailableCopies(0);
+        }
+        
+        // Update availability status
+        Book updatedBook = bookRepository.save(existingBook);
+        return modelMapper.map(updatedBook, BookResponse.class);
+    }
+
+    public BookResponse getBookById(UUID id) {
+        Book book = bookRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Book not found with id: " + id));
+        return modelMapper.map(book, BookResponse.class);
+    }
+    
+    @Transactional
+    public void deleteBook(UUID id) {
+        Book book = bookRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Book not found with id: " + id));
         book.setDeleted(true);
         bookRepository.save(book);
     }

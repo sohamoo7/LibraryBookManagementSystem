@@ -22,15 +22,28 @@ public interface BorrowRecordRepository extends JpaRepository<BorrowRecord, UUID
     
     @Query("SELECT br FROM BorrowRecord br " +
            "WHERE br.borrower.id = :borrowerId AND br.book.id = :bookId AND br.returnDate IS NULL")
-    Optional<BorrowRecord> findActiveBorrow(@Param("borrowerId") UUID borrowerId, 
-                                          @Param("bookId") UUID bookId);
+    Optional<BorrowRecord> findActiveBorrow(@Param("borrowerId") UUID borrowerId,
+                                            @Param("bookId") UUID bookId);
     
     @Query("SELECT br FROM BorrowRecord br " +
            "WHERE br.returnDate IS NULL")
     List<BorrowRecord> findAllActiveBorrows();
     
+    @Query("SELECT br FROM BorrowRecord br WHERE br.borrower.id = :borrowerId ORDER BY br.borrowDate DESC")
+    List<BorrowRecord> findByBorrowerIdOrderByBorrowDateDesc(@Param("borrowerId") UUID borrowerId);
+    
     @Query("SELECT COUNT(br) > 0 FROM BorrowRecord br " +
            "WHERE br.borrower.id = :borrowerId AND br.book.id = :bookId AND br.returnDate IS NULL")
     boolean isBookBorrowedByBorrower(@Param("bookId") UUID bookId, 
                                    @Param("borrowerId") UUID borrowerId);
+                                   
+    @Query("SELECT br FROM BorrowRecord br " +
+           "LEFT JOIN FETCH br.book " +
+           "LEFT JOIN FETCH br.borrower " +
+           "WHERE br.borrower.id = :borrowerId " +
+           "AND br.book.id = :bookId " +
+           "AND br.returnDate IS NULL")
+    Optional<BorrowRecord> findActiveBorrowWithBookAndBorrower(
+            @Param("borrowerId") UUID borrowerId,
+            @Param("bookId") UUID bookId);
 }

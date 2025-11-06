@@ -1,15 +1,24 @@
 package org.example.model;
 
+import com.fasterxml.jackson.annotation.*;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 @Entity
+@JsonIdentityInfo(
+    generator = ObjectIdGenerators.PropertyGenerator.class,
+    property = "id",
+    scope = BorrowRecord.class
+)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class BorrowRecord {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -18,15 +27,18 @@ public class BorrowRecord {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "book_id", nullable = false)
     @NotNull(message = "Book is required")
+    @JsonBackReference("book-borrowRecords")
     private Book book;
     
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "borrower_id", nullable = false)
     @NotNull(message = "Borrower is required")
+    @JsonBackReference("borrower-borrowRecords")
     private Borrower borrower;
     
     /**
      * Sets the book for this borrow record and updates the bidirectional relationship.
+     * Note: This method does NOT update the book's available copies - that should be handled by the service layer.
      * @param book The book to associate with this record
      */
     public void setBook(Book book) {
@@ -37,13 +49,18 @@ public class BorrowRecord {
         
         // Remove from old book if exists
         if (this.book != null) {
-            this.book.removeBorrowRecord(this);
+            this.book.getBorrowRecords().remove(this);
         }
         
         // Set new book and update relationship
         this.book = book;
+        
         if (book != null) {
-            book.addBorrowRecord(this);
+            // Initialize the borrowRecords collection if it's null (shouldn't happen with proper initialization)
+            if (book.getBorrowRecords() == null) {
+                book.setBorrowRecords(new ArrayList<>());
+            }
+            book.getBorrowRecords().add(this);
         }
     }
     
@@ -59,37 +76,28 @@ public class BorrowRecord {
         
         // Remove from old borrower if exists
         if (this.borrower != null) {
-            this.borrower.removeBorrowRecord(this);
+            this.borrower.getBorrowRecords().remove(this);
         }
         
         // Set new borrower and update relationship
         this.borrower = borrower;
         if (borrower != null) {
-            borrower.addBorrowRecord(this);
+            // Initialize the borrowRecords collection if it's null (shouldn't happen with proper initialization)
+            if (borrower.getBorrowRecords() == null) {
+                borrower.setBorrowRecords(new ArrayList<>());
+            }
+            borrower.getBorrowRecords().add(this);
         }
     }
     
-    /**
-     * Helper method to set both book and borrower in a single transaction.
-     * @param book The book to borrow
-     * @param borrower The borrower who is borrowing the book
-     */
-    public void createBorrowRecord(Book book, Borrower borrower) {
-        setBook(book);
-        setBorrower(borrower);
-        this.borrowDate = LocalDate.now();
-        this.dueDate = this.borrowDate.plusWeeks(2); // 2 weeks borrowing period
-    }
+    // Removed createBorrowRecord method as this logic should be in the service layer
     
     /**
-     * Marks the book as returned and updates the book's availability.
+     * Marks the book as returned.
+     * Note: Updating the book's available copies should be handled by the service layer.
      */
     public void markAsReturned() {
         this.returnDate = LocalDate.now();
-        if (this.book != null) {
-            this.book.setAvailableCopies(this.book.getAvailableCopies() + 1);
-            this.book.setAvailable(true);
-        }
     }
     
     @Column(nullable = false)
@@ -121,9 +129,7 @@ public class BorrowRecord {
         return book;
     }
 
-//
-
-
+    // Removed getBorrowRecords() as it's not needed and was causing issues
 
 
     public Borrower getBorrower() {

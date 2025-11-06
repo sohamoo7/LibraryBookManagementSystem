@@ -1,7 +1,11 @@
 package org.example.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.util.ArrayList;
 import org.example.dto.BorrowRequest;
 import org.example.dto.BorrowResponse;
+import org.example.dto.ReturnBookResponse;
 import org.example.exception.*;
 import org.example.model.Book;
 import org.example.model.BorrowRecord;
@@ -34,7 +38,9 @@ public class BorrowService {
 
     @Value("${borrow.fine.per.day:10.0}")
     private double finePerDay;
-
+    
+    private static final Logger logger = LoggerFactory.getLogger(BorrowService.class);
+    
     @Autowired
     public BorrowService(BorrowRecordRepository borrowRecordRepository,
                         BookRepository bookRepository,
@@ -46,7 +52,12 @@ public class BorrowService {
         this.modelMapper = modelMapper;
     }
 
+    @Transactional
     public BorrowResponse borrowBook(BorrowRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Borrow request cannot be null");
+        }
+
         // Check if borrower exists
         Borrower borrower = borrowerRepository.findById(request.getBorrowerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Borrower not found with id: " + request.getBorrowerId()));
@@ -55,75 +66,119 @@ public class BorrowService {
         Book book = bookRepository.findByIdAndDeletedFalse(request.getBookId())
                 .orElseThrow(() -> new ResourceNotFoundException("Book not found with id: " + request.getBookId()));
 
+        // Verify book is available
         if (book.getAvailableCopies() < 1) {
             throw new BookNotAvailableException("No available copies of the book with id: " + request.getBookId());
         }
 
         // Check if borrower has already borrowed this book
-        if (borrowRecordRepository.isBookBorrowedByBorrower(request.getBookId(), request.getBorrowerId())) {
+        boolean alreadyBorrowed = borrowRecordRepository.isBookBorrowedByBorrower(request.getBookId(), request.getBorrowerId());
+        if (alreadyBorrowed) {
             throw new BookAlreadyBorrowedException("Book is already borrowed by this borrower");
         }
 
         // Check if borrower has reached max borrow limit
         int activeBorrows = borrowRecordRepository.countActiveBorrowsByBorrowerId(request.getBorrowerId());
         if (activeBorrows >= borrower.getMaxBorrowLimit()) {
-            throw new BorrowLimitExceededException("Borrower has reached the maximum borrow limit");
+            throw new BorrowLimitExceededException("Borrower has reached the maximum borrow limit of " + borrower.getMaxBorrowLimit());
         }
 
-        // Create borrow record
-        LocalDate borrowDate = LocalDate.now();
-        LocalDate dueDate = borrowDate.plusDays(defaultBorrowDays);
+        try {
+            // Create borrow record
+            LocalDate borrowDate = LocalDate.now();
+            LocalDate dueDate = borrowDate.plusDays(defaultBorrowDays);
 
-        BorrowRecord borrowRecord = new BorrowRecord();
-        borrowRecord.setBook(book);
-        borrowRecord.setBorrower(borrower);
-        borrowRecord.setBorrowDate(borrowDate);
-        borrowRecord.setDueDate(dueDate);
-
-        // Save borrow record
-        BorrowRecord savedRecord = borrowRecordRepository.save(borrowRecord);
-
-        // Update book available copies
-        book.setAvailableCopies(book.getAvailableCopies() - 1);
-        bookRepository.save(book);
-
-        return mapToBorrowResponse(savedRecord);
+            BorrowRecord borrowRecord = new BorrowRecord();
+            borrowRecord.setBorrowDate(borrowDate);
+            borrowRecord.setDueDate(dueDate);
+            borrowRecord.setReturnDate(null);
+            borrowRecord.setFineAmount(0.0);
+            
+            // First update the book's available copies
+            int newAvailableCopies = book.getAvailableCopies() - 1;
+            book.setAvailableCopies(newAvailableCopies);
+            book.setAvailable(newAvailableCopies > 0);
+            
+            // Then set the book and borrower - this will update the bidirectional relationships
+            // but won't affect the available copies as we've removed that logic from setBook()
+            borrowRecord.setBook(book);
+            borrowRecord.setBorrower(borrower);
+            
+            // Save the borrow record
+            BorrowRecord savedRecord = borrowRecordRepository.save(borrowRecord);
+            
+            // Explicitly save the book to ensure the available copies are updated
+            bookRepository.save(book);
+            
+            return mapToBorrowResponse(savedRecord);
+            
+        } catch (Exception e) {
+            logger.error("Error borrowing book: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to process book borrowing", e);
+        }
     }
 
-    public BorrowResponse returnBook(BorrowRequest request) {
-        // Find active borrow record
-        BorrowRecord borrowRecord = borrowRecordRepository
-                .findActiveBorrow(request.getBorrowerId(), request.getBookId())
-                .orElseThrow(() -> new ResourceNotFoundException("No active borrow record found for the given book and borrower"));
-
-        // Get the borrower
-        Borrower borrower = borrowRecord.getBorrower();
-        
-        // Update return date
-        LocalDate returnDate = LocalDate.now();
-        borrowRecord.setReturnDate(returnDate);
-
-        // Calculate fine if returned after due date
-        if (returnDate.isAfter(borrowRecord.getDueDate())) {
-            long daysOverdue = returnDate.toEpochDay() - borrowRecord.getDueDate().toEpochDay();
-            double fine = daysOverdue * finePerDay;
-            borrowRecord.setFineAmount(fine);
+    @Transactional
+    public ReturnBookResponse returnBook(BorrowRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Return request cannot be null");
         }
 
-        // Save updated record
-        BorrowRecord updatedRecord = borrowRecordRepository.save(borrowRecord);
+        try {
+            // Find active borrow record with book and borrower loaded in the same transaction
+            BorrowRecord borrowRecord = borrowRecordRepository
+                    .findActiveBorrowWithBookAndBorrower(request.getBorrowerId(), request.getBookId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            String.format("No active borrow record found for bookId: %s and borrowerId: %s", 
+                                    request.getBookId(), request.getBorrowerId())));
 
-        // Update book available copies
-        Book book = borrowRecord.getBook();
-        book.setAvailableCopies(book.getAvailableCopies() + 1);
-        bookRepository.save(book);
-        
-        // The borrower's book limit is automatically managed by the Borrower entity
-        // When a book is returned, the borrow record is removed from the borrower's records
-        // and the borrower's borrow limit is automatically updated
-        // This is handled by the JPA relationship and the Borrower entity's removeBorrowRecord method
+            // Get the book and borrower from the loaded borrow record
+            Book book = borrowRecord.getBook();
+            Borrower borrower = borrowRecord.getBorrower();
+            
+            if (book == null || borrower == null) {
+                throw new IllegalStateException("Invalid borrow record: missing book or borrower");
+            }
 
-        return mapToBorrowResponse(updatedRecord);
+            // Mark as returned and update the return date
+            LocalDate returnDate = LocalDate.now();
+            if (borrowRecord.getReturnDate() != null) {
+                throw new IllegalStateException("Book has already been returned");
+            }
+            
+            borrowRecord.setReturnDate(returnDate);
+
+            // Calculate fine if returned after due date
+            if (returnDate.isAfter(borrowRecord.getDueDate())) {
+                long daysOverdue = returnDate.toEpochDay() - borrowRecord.getDueDate().toEpochDay();
+                double fine = daysOverdue * finePerDay;
+                borrowRecord.setFineAmount(fine);
+            } else {
+                borrowRecord.setFineAmount(0.0);
+            }
+
+            // Update book available copies
+            int newAvailableCopies = book.getAvailableCopies() + 1;
+            book.setAvailableCopies(newAvailableCopies);
+            book.setAvailable(newAvailableCopies > 0);
+
+            // Create response
+            ReturnBookResponse response = new ReturnBookResponse();
+            response.setId(borrowRecord.getId());
+            response.setBookId(book.getId());
+            response.setBorrowerId(borrower.getId());
+            response.setBorrowDate(borrowRecord.getBorrowDate());
+            response.setDueDate(borrowRecord.getDueDate());
+            response.setReturnDate(borrowRecord.getReturnDate());
+            response.setFineAmount(borrowRecord.getFineAmount());
+            response.setMessage("Book returned successfully");
+            
+            return response;
+            
+        } catch (Exception e) {
+            logger.error("Error returning book: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to process book return", e);
+        }
     }
 
     public List<BorrowResponse> getActiveBorrows() {
@@ -133,9 +188,19 @@ public class BorrowService {
     }
 
     private BorrowResponse mapToBorrowResponse(BorrowRecord borrowRecord) {
-        BorrowResponse response = modelMapper.map(borrowRecord, BorrowResponse.class);
-        response.setBookId(borrowRecord.getBook().getId());
-        response.setBorrowerId(borrowRecord.getBorrower().getId());
+        if (borrowRecord == null) {
+            return null;
+        }
+        
+        BorrowResponse response = new BorrowResponse();
+        response.setId(borrowRecord.getId());
+        response.setBookId(borrowRecord.getBook() != null ? borrowRecord.getBook().getId() : null);
+        response.setBorrowerId(borrowRecord.getBorrower() != null ? borrowRecord.getBorrower().getId() : null);
+        response.setBorrowDate(borrowRecord.getBorrowDate());
+        response.setDueDate(borrowRecord.getDueDate());
+        response.setReturnDate(borrowRecord.getReturnDate());
+        response.setFineAmount(borrowRecord.getFineAmount());
+        
         return response;
     }
 }

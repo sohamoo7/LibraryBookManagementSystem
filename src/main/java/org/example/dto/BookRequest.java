@@ -1,9 +1,24 @@
 package org.example.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+
 public class BookRequest {
+    @NotBlank(message = "Title is required")
+    @JsonProperty("title")
     private String title;
+    
+    @NotBlank(message = "Author is required")
+    @JsonProperty("author")
     private String author;
+    
+    @NotBlank(message = "Category is required")
+    @JsonProperty("category")
     private String category;
+    
+    @Positive(message = "Total copies must be a positive number")
+    @JsonProperty("totalCopies")
     private int totalCopies;
 
     public String getTitle() {

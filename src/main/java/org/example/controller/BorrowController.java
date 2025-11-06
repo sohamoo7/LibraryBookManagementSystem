@@ -2,6 +2,7 @@ package org.example.controller;
 
 import org.example.dto.BorrowRequest;
 import org.example.dto.BorrowResponse;
+import org.example.dto.ReturnBookResponse;
 import org.example.service.BorrowService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -28,8 +29,8 @@ public class BorrowController {
     }
 
     @PostMapping("/return")
-    public ResponseEntity<BorrowResponse> returnBook(@RequestBody BorrowRequest request) {
-        BorrowResponse response = borrowService.returnBook(request);
+    public ResponseEntity<ReturnBookResponse> returnBook(@RequestBody BorrowRequest request) {
+        ReturnBookResponse response = borrowService.returnBook(request);
         return ResponseEntity.ok(response);
     }
 
