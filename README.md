@@ -1,32 +1,99 @@
-# Library Management System
+# 📚 Library Management System
 
-A comprehensive Spring Boot-based Library Management System designed to streamline library operations. This system provides a robust backend API for managing library resources, borrowers, and lending operations with proper validation and error handling.
+A comprehensive Spring Boot-based Library Management System designed to modernize and automate library operations. This robust, production-ready solution provides a complete set of RESTful APIs for managing all aspects of a library's operations, from book inventory to borrower management and lending processes.
+
+## 🏗️ Project Overview
+
+### System Architecture
+
+The application follows a clean, layered architecture:
+
+1. **Presentation Layer**: REST Controllers that handle HTTP requests and responses
+2. **Service Layer**: Business logic and validation
+3. **Repository Layer**: Data access and persistence
+4. **Model Layer**: Domain entities and DTOs
+
+### Core Components
+
+- **Book Management**: Complete CRUD operations for library inventory
+- **Borrower Management**: Member registration and profile management
+- **Lending System**: Book checkout, return, and tracking
+- **Reporting**: Comprehensive reports on library operations
+- **Validation**: Robust input validation and error handling
+
+### Technology Stack
+
+- **Backend**: Spring Boot 3.x, Java 17
+- **Database**: H2 (Development), Configurable for production databases
+- **Build Tool**: Maven
+- **API Documentation**: SpringDoc OpenAPI
+- **Testing**: JUnit 5, Mockito, Spring Test
+
+## 📊 Data Model
+
+The system is built around three main entities:
+
+1. **Book**
+   - Represents a book in the library
+   - Tracks availability and borrowing status
+   - Includes metadata like title, author, ISBN, etc.
+
+2. **Borrower**
+   - Represents a library member
+   - Stores contact information and membership details
+   - Maintains borrowing history
+
+3. **BorrowRecord**
+   - Tracks book lending transactions
+   - Records checkout and return dates
+   - Manages due dates and overdue status
+
+### Database Schema
+
+The system uses JPA entities with the following relationships:
+- One-to-Many: Borrower to BorrowRecord
+- Many-to-One: BorrowRecord to Book
+- Many-to-One: BorrowRecord to Borrower
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Java 17 or higher
+- Maven 3.6.3+
+- Your favorite IDE (IntelliJ IDEA recommended)
 
 ## 🚀 Key Features
 
 ### Book Management
-- 📚 Add new books with details like title, author, ISBN, and publication year
-- 🔍 Search and filter books by various criteria
+- 📚 Add new books with details like title, author, and ISBN
+- 🔍 Search and filter books by various criteria (title, author, and ISBN)
 - 📝 Update book information and availability status
 - 🗑️ Remove books from the system
+- 🔄 Track book availability and borrowing history
 
 ### Borrower Management
 - 👥 Register and manage library members
 - 📋 Track borrower information and contact details
 - 🔄 Update borrower profiles
-- 📊 View borrowing history
+- 📊 View complete borrowing history with status (BORROWED/RETURNED/OVERDUE)
+- 🔍 Search and filter borrowers by name, email, or ID
 
 ### Lending System
-- 📖 Check out books to borrowers
-- 🔄 Process book returns
-- ⏰ Track due dates and calculate fines
-- 🔔 Send overdue notifications
+- 📖 Check out books to borrowers with automatic due date calculation
+- 🔄 Process book returns with status updates
+- ⏰ Track due dates and automatically mark overdue books
+- 📅 View current and past loans with detailed status
+- 🔍 Filter loans by status (BORROWED/RETURNED/OVERDUE)
 
-### Security & Validation
-- 🔒 Input validation for all API endpoints
-- 🛡️ Consistent error handling and meaningful error messages
-- 📅 Automatic due date calculation
-- ⚠️ Handling of edge cases (e.g., book already borrowed, borrower limits)
+### Data Validation & Error Handling
+- 🔒 Comprehensive input validation for all API endpoints
+- 🛡️ Consistent error responses with meaningful messages
+- 📅 Automatic due date calculation (14 days from borrowing)
+- ⚠️ Robust handling of edge cases:
+  - Book already borrowed
+  - Borrower limits (max 3 books per borrower)
+  - Duplicate book ISBN prevention
+  - Invalid return operations
 
 ### API Documentation
 - 📚 Comprehensive API documentation
@@ -62,7 +129,6 @@ A comprehensive Spring Boot-based Library Management System designed to streamli
 - Spring Web
 - Spring Data JPA
 - H2 Database (for development)
-- Lombok (for reducing boilerplate)
 - ModelMapper (for DTO conversions)
 - Spring Boot DevTools (for development)
 
@@ -91,7 +157,7 @@ src/main/java/org/example/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/library-management-system.git
+   git clone https://github.com/sohamoo7/library-management-system.git
    cd library-management-system
    ```
 
@@ -105,6 +171,9 @@ src/main/java/org/example/
    mvn spring-boot:run
    ```
    The application will start on `http://localhost:8080`
+
+### API Base URL
+All API endpoints are prefixed with `/api`. For example: `http://localhost:8080/api/books`
 
 ### Database Configuration
 By default, the application uses an in-memory H2 database for development. For production:
@@ -135,11 +204,11 @@ http://localhost:8080/actuator
 - `PUT /api/books/{id}` - Update a book
 - `DELETE /api/books/{id}` - Delete a book
 
-Get first page with 10 books: http://localhost:8080/api/books
-Get second page with 5 books: http://localhost:8080/api/books?page=1&size=5
-Get books sorted by author descending: http://localhost:8080/api/books?sort=author,desc
-Get available books in "Tech" category: http://localhost:8080/api/books?category=Tech&available=true
-Get Books by Category and Availability URL: http://localhost:8080/api/books?category={categoryName}&available=true/false	
+Get first page with 10 books: http://localhost:8080/api/books, 
+Get second page with 5 books: http://localhost:8080/api/books?page=1&size=5, 
+Get books sorted by author descending: http://localhost:8080/api/books?sort=author,desc, 
+Get available books in "Tech" category: http://localhost:8080/api/books?category=Tech&available=true, 
+Get Books by Category and Availability URL: http://localhost:8080/api/books?category={categoryName}&available=true/false, 	
 
 
 ### Borrowers
@@ -147,10 +216,10 @@ Get Books by Category and Availability URL: http://localhost:8080/api/books?cate
 - `POST /api/borrowers` - Register a new borrower
 - `GET /api/borrowers/{id}/books` - Get books borrowed by a user
   
-POST  http://localhost:8080/api/borrowers		
-GET all borrowers  http://localhost:8080/api/borrowers
-GET to see records  http://localhost:8080/api/borrowers/{id}/records
-GET overdue  http://localhost:8080/api/borrowers/overdue
+POST  http://localhost:8080/api/borrowers, 		
+GET all borrowers  http://localhost:8080/api/borrowers, 
+GET to see records  http://localhost:8080/api/borrowers/{id}/records, 
+GET overdue  http://localhost:8080/api/borrowers/overdue, 
  
 
 
@@ -165,6 +234,13 @@ Run integration tests:
 ```bash
 mvn verify -Pintegration-test
 ```
+
+### Test Coverage
+The project includes comprehensive test coverage for:
+- Service layer unit tests
+- Controller layer tests with MockMvc
+- Repository layer tests with @DataJpaTest
+- Integration tests for critical workflows
 
 ## 🧩 Project Structure
 
@@ -203,11 +279,25 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Maven](https://maven.apache.org/) - Dependency Management
 - [H2 Database](https://www.h2database.com/) - In-memory database
 
-## 📧 Contact
+## 📧 Support
 
-Your Name - your.email@example.com
+For any issues or feature requests, please open an issue in the project repository.
 
-Project Link: [https://github.com/yourusername/library-management-system](https://github.com/yourusername/library-management-system)
+## 🔧 Development Status
+
+✅ Core functionality implemented  
+✅ Comprehensive test coverage  
+✅ API documentation available  
+
+## 🚀 Future Enhancements
+
+- [ ] Add authentication and authorization
+- [ ] Implement fine calculation for overdue books
+- [ ] Add email notifications for due dates
+- [ ] Implement book reservation system
+- [ ] Add reporting and analytics dashboard
+
+Project Link: [https://github.com/sohamoo7/library-management-system](https://github.com/sohamoo7/library-management-system)
 
 ## Error Handling
 
