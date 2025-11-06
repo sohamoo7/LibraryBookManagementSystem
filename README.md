@@ -131,20 +131,28 @@ http://localhost:8080/actuator
 
 ### Books
 - `GET /api/books` - Get all books
-- `GET /api/books/{id}` - Get book by ID
 - `POST /api/books` - Add a new book
 - `PUT /api/books/{id}` - Update a book
 - `DELETE /api/books/{id}` - Delete a book
+
+Get first page with 10 books: http://localhost:8080/api/books
+Get second page with 5 books: http://localhost:8080/api/books?page=1&size=5
+Get books sorted by author descending: http://localhost:8080/api/books?sort=author,desc
+Get available books in "Tech" category: http://localhost:8080/api/books?category=Tech&available=true
+Get Books by Category and Availability URL: http://localhost:8080/api/books?category={categoryName}&available=true/false	
+
 
 ### Borrowers
 - `GET /api/borrowers` - Get all borrowers
 - `POST /api/borrowers` - Register a new borrower
 - `GET /api/borrowers/{id}/books` - Get books borrowed by a user
+  
+POST  http://localhost:8080/api/borrowers		
+GET all borrowers  http://localhost:8080/api/borrowers
+GET to see records  http://localhost:8080/api/borrowers/{id}/records
+GET overdue  http://localhost:8080/api/borrowers/overdue
+ 
 
-### Lending
-- `POST /api/loans/borrow` - Borrow a book
-- `POST /api/loans/return` - Return a book
-- `GET /api/loans/overdue` - Get all overdue books
 
 ## 🧪 Testing
 
@@ -216,3 +224,5 @@ The application uses a global exception handler to provide consistent error resp
 ## License
 
 (Add license information here)
+
+
