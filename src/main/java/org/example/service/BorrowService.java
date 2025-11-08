@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-public class BorrowService {
+public class BorrowService implements IBorrowService {
 
     private final BorrowRecordRepository borrowRecordRepository;
     private final BookRepository bookRepository;
@@ -52,6 +52,7 @@ public class BorrowService {
         this.modelMapper = modelMapper;
     }
 
+    @Override
     @Transactional
     public BorrowResponse borrowBook(BorrowRequest request) {
         if (request == null) {
@@ -63,7 +64,7 @@ public class BorrowService {
                 .orElseThrow(() -> new ResourceNotFoundException("Borrower not found with id: " + request.getBorrowerId()));
 
         // Check if book exists and is available
-        Book book = bookRepository.findByIdAndDeletedFalse(request.getBookId())
+        Book book = bookRepository.findByIdAndDeletedFalseWithWriteLock(request.getBookId())
                 .orElseThrow(() -> new ResourceNotFoundException("Book not found with id: " + request.getBookId()));
 
         // Verify book is available
@@ -83,41 +84,32 @@ public class BorrowService {
             throw new BorrowLimitExceededException("Borrower has reached the maximum borrow limit of " + borrower.getMaxBorrowLimit());
         }
 
-        try {
-            // Create borrow record
-            LocalDate borrowDate = LocalDate.now();
-            LocalDate dueDate = borrowDate.plusDays(defaultBorrowDays);
+        // Create borrow record
+        LocalDate borrowDate = LocalDate.now();
+        LocalDate dueDate = borrowDate.plusDays(defaultBorrowDays);
 
-            BorrowRecord borrowRecord = new BorrowRecord();
-            borrowRecord.setBorrowDate(borrowDate);
-            borrowRecord.setDueDate(dueDate);
-            borrowRecord.setReturnDate(null);
-            borrowRecord.setFineAmount(0.0);
-            
-            // First update the book's available copies
-            int newAvailableCopies = book.getAvailableCopies() - 1;
-            book.setAvailableCopies(newAvailableCopies);
-            book.setAvailable(newAvailableCopies > 0);
-            
-            // Then set the book and borrower - this will update the bidirectional relationships
-            // but won't affect the available copies as we've removed that logic from setBook()
-            borrowRecord.setBook(book);
-            borrowRecord.setBorrower(borrower);
-            
-            // Save the borrow record
-            BorrowRecord savedRecord = borrowRecordRepository.save(borrowRecord);
-            
-            // Explicitly save the book to ensure the available copies are updated
-            bookRepository.save(book);
-            
-            return mapToBorrowResponse(savedRecord);
-            
-        } catch (Exception e) {
-            logger.error("Error borrowing book: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to process book borrowing", e);
-        }
+        BorrowRecord borrowRecord = new BorrowRecord();
+        borrowRecord.setBorrowDate(borrowDate);
+        borrowRecord.setDueDate(dueDate);
+        borrowRecord.setReturnDate(null);
+        borrowRecord.setFineAmount(0.0);
+        
+        // Update the book's available copies
+        int newAvailableCopies = book.getAvailableCopies() - 1;
+        book.setAvailableCopies(newAvailableCopies);
+        book.setAvailable(newAvailableCopies > 0);
+        
+        // Set the book and borrower
+        borrowRecord.setBook(book);
+        borrowRecord.setBorrower(borrower);
+        
+        // Save the borrow record
+        BorrowRecord savedRecord = borrowRecordRepository.save(borrowRecord);
+        
+        return mapToBorrowResponse(savedRecord);
     }
 
+    @Override
     @Transactional
     public ReturnBookResponse returnBook(BorrowRequest request) {
         if (request == null) {
@@ -181,6 +173,8 @@ public class BorrowService {
         }
     }
 
+    @Override
+    @Transactional(readOnly = true)
     public List<BorrowResponse> getActiveBorrows() {
         return borrowRecordRepository.findAllActiveBorrows().stream()
                 .map(this::mapToBorrowResponse)

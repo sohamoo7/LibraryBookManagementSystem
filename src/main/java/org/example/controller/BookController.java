@@ -2,7 +2,7 @@ package org.example.controller;
 
 import org.example.dto.BookRequest;
 import org.example.dto.BookResponse;
-import org.example.service.BookService;
+import org.example.service.IBookService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,8 +21,12 @@ import java.util.List;
 @RequestMapping("/api/books")
 public class BookController {
 
+    private final IBookService bookService;
+
     @Autowired
-    private BookService bookService;
+    public BookController(IBookService bookService) {
+        this.bookService = bookService;
+    }
 
     @PostMapping(value = "/add", 
                 consumes = MediaType.APPLICATION_JSON_VALUE,

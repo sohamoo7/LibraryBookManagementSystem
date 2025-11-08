@@ -3,7 +3,7 @@ package org.example.controller;
 import org.example.dto.BorrowerRequest;
 import org.example.dto.BorrowerResponse;
 import org.example.dto.BorrowRecordResponse;
-import org.example.service.BorrowerService;
+import org.example.service.IBorrowerService;
 import java.time.LocalDate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -20,10 +20,10 @@ import java.util.UUID;
 @RequestMapping("/api/borrowers")
 public class BorrowerController {
 
-    private final BorrowerService borrowerService;
+    private final IBorrowerService borrowerService;
 
     @Autowired
-    public BorrowerController(BorrowerService borrowerService) {
+    public BorrowerController(IBorrowerService borrowerService) {
         this.borrowerService = borrowerService;
     }
 
@@ -40,8 +40,10 @@ public class BorrowerController {
     }
 
     @GetMapping("/overdue")
-    public ResponseEntity<List<BorrowerResponse>> getBorrowersWithOverdueBooks() {
-        List<BorrowerResponse> response = borrowerService.getBorrowersWithOverdueBooks(LocalDate.now());
+    public ResponseEntity<List<BorrowerResponse>> getBorrowersWithOverdueBooks(
+            @RequestParam(required = false) LocalDate currentDate) {
+        List<BorrowerResponse> response = borrowerService.getBorrowersWithOverdueBooks(
+            currentDate != null ? currentDate : LocalDate.now());
         return ResponseEntity.ok(response);
     }
 

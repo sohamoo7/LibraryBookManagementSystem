@@ -8,22 +8,27 @@ public class BorrowRecordResponse {
     private UUID id;
     private UUID bookId;
     private String bookTitle;
+    private UUID borrowerId;
     private LocalDate borrowDate;
     private LocalDate dueDate;
     private LocalDate returnDate;
+    private double fineAmount;
     private String status;
 
     public BorrowRecordResponse() {
     }
 
-    public BorrowRecordResponse(UUID id, UUID bookId, String bookTitle, LocalDate borrowDate, 
-                              LocalDate dueDate, LocalDate returnDate, String status) {
+    public BorrowRecordResponse(UUID id, UUID bookId, String bookTitle, UUID borrowerId, 
+                              LocalDate borrowDate, LocalDate dueDate, LocalDate returnDate,
+                              double fineAmount, String status) {
         this.id = id;
         this.bookId = bookId;
         this.bookTitle = bookTitle;
+        this.borrowerId = borrowerId;
         this.borrowDate = borrowDate;
         this.dueDate = dueDate;
         this.returnDate = returnDate;
+        this.fineAmount = fineAmount;
         this.status = status;
     }
 
@@ -50,6 +55,22 @@ public class BorrowRecordResponse {
 
     public void setBookTitle(String bookTitle) {
         this.bookTitle = bookTitle;
+    }
+    
+    public UUID getBorrowerId() {
+        return borrowerId;
+    }
+    
+    public void setBorrowerId(UUID borrowerId) {
+        this.borrowerId = borrowerId;
+    }
+    
+    public double getFineAmount() {
+        return fineAmount;
+    }
+    
+    public void setFineAmount(double fineAmount) {
+        this.fineAmount = fineAmount;
     }
 
     public LocalDate getBorrowDate() {

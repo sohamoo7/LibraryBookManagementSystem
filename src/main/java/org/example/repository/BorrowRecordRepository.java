@@ -1,5 +1,6 @@
 package org.example.repository;
 
+import org.example.dto.BorrowRecordResponse;
 import org.example.model.Book;
 import org.example.model.BorrowRecord;
 import org.example.model.Borrower;
@@ -21,22 +22,14 @@ public interface BorrowRecordRepository extends JpaRepository<BorrowRecord, UUID
     int countActiveBorrowsByBorrowerId(@Param("borrowerId") UUID borrowerId);
     
     @Query("SELECT br FROM BorrowRecord br " +
-           "WHERE br.borrower.id = :borrowerId AND br.book.id = :bookId AND br.returnDate IS NULL")
-    Optional<BorrowRecord> findActiveBorrow(@Param("borrowerId") UUID borrowerId,
-                                            @Param("bookId") UUID bookId);
-    
-    @Query("SELECT br FROM BorrowRecord br " +
            "WHERE br.returnDate IS NULL")
     List<BorrowRecord> findAllActiveBorrows();
-    
-    @Query("SELECT br FROM BorrowRecord br WHERE br.borrower.id = :borrowerId ORDER BY br.borrowDate DESC")
-    List<BorrowRecord> findByBorrowerIdOrderByBorrowDateDesc(@Param("borrowerId") UUID borrowerId);
     
     @Query("SELECT COUNT(br) > 0 FROM BorrowRecord br " +
            "WHERE br.borrower.id = :borrowerId AND br.book.id = :bookId AND br.returnDate IS NULL")
     boolean isBookBorrowedByBorrower(@Param("bookId") UUID bookId, 
                                    @Param("borrowerId") UUID borrowerId);
-                                   
+    
     @Query("SELECT br FROM BorrowRecord br " +
            "LEFT JOIN FETCH br.book " +
            "LEFT JOIN FETCH br.borrower " +
@@ -46,4 +39,29 @@ public interface BorrowRecordRepository extends JpaRepository<BorrowRecord, UUID
     Optional<BorrowRecord> findActiveBorrowWithBookAndBorrower(
             @Param("borrowerId") UUID borrowerId,
             @Param("bookId") UUID bookId);
+            
+    /**
+     * Get borrow history with DTO projection for better performance
+     */
+    @Query("""
+        SELECT new org.example.dto.BorrowRecordResponse(
+            br.id,
+            br.book.id,
+            br.book.title,
+            br.borrower.id,
+            br.borrowDate,
+            br.dueDate,
+            br.returnDate,
+            br.fineAmount,
+            CASE 
+                WHEN br.returnDate IS NOT NULL THEN 'RETURNED'
+                WHEN br.dueDate < CURRENT_DATE THEN 'OVERDUE'
+                ELSE 'BORROWED'
+            END
+        )
+        FROM BorrowRecord br
+        WHERE br.borrower.id = :borrowerId
+        ORDER BY br.borrowDate DESC
+    """)
+    List<BorrowRecordResponse> findBorrowHistoryByBorrowerId(@Param("borrowerId") UUID borrowerId);
 }

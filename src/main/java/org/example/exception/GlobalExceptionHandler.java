@@ -147,6 +147,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(ResourceAlreadyExistsException.class)
+    public ResponseEntity<Object> handleResourceAlreadyExistsException(ResourceAlreadyExistsException ex, WebRequest request) {
+        logger.warn("Resource already exists: {}", ex.getMessage());
+        
+        Map<String, Object> body = createErrorResponse(
+                HttpStatus.CONFLICT,
+                "Resource Already Exists",
+                ex.getMessage(),
+                ((ServletWebRequest) request).getRequest().getRequestURI()
+        );
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(BookAlreadyBorrowedException.class)
     public ResponseEntity<Object> handleBookAlreadyBorrowedException(BookAlreadyBorrowedException ex, WebRequest request) {
         logger.warn("Book already borrowed: {}", ex.getMessage());

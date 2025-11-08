@@ -3,7 +3,7 @@ package org.example.controller;
 import org.example.dto.BorrowRequest;
 import org.example.dto.BorrowResponse;
 import org.example.dto.ReturnBookResponse;
-import org.example.service.BorrowService;
+import org.example.service.IBorrowService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,10 +15,10 @@ import java.util.List;
 @RequestMapping("/api")
 public class BorrowController {
 
-    private final BorrowService borrowService;
+    private final IBorrowService borrowService;
 
     @Autowired
-    public BorrowController(BorrowService borrowService) {
+    public BorrowController(IBorrowService borrowService) {
         this.borrowService = borrowService;
     }
 
